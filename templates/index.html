@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cloud Security Hybrid ML</title>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: white;
+            font-family: Arial;
+            text-align: center;
+        }
+
+        h1 {
+            color: #38bdf8;
+        }
+
+        button {
+            padding: 12px 25px;
+            font-size: 16px;
+            background-color: #22c55e;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #16a34a;
+        }
+
+        .result {
+            margin-top: 20px;
+            font-size: 22px;
+        }
+
+        .box {
+            background-color: #1e293b;
+            padding: 30px;
+            margin: 40px auto;
+            width: 60%;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="box">
+    <h1>Cloud Security Attack Detection System</h1>
+
+    <h3>Model Accuracy: {{ accuracy }}</h3>
+
+    <a href="/predict">
+        <button>Run Detection</button>
+    </a>
+
+    <div class="result">
+        {{ prediction }}
+    </div>
+
+    <br><br>
+    <h3>Confusion Matrix</h3>
+    <img src="/static/confusion_matrix.png" width="400">
+</div>
+
+</body>
+</html>
+
