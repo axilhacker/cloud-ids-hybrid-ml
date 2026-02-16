@@ -49,34 +49,28 @@ def home():
 @app.route("/predict")
 def predict():
 
-    # Pick random row
     random_row = test_df.sample(1)
 
     X = random_row.drop("label", axis=1)
-    y_actual = random_row["label"].values[0]
+    actual_attack = random_row["label"].values[0]  # 🔥 Use raw label safely
 
-    # 🔥 Encode categorical columns safely
+    # Encode categorical columns
     categorical_columns = ["protocol_type", "service", "flag"]
 
     for col in categorical_columns:
         if col in X.columns:
             X[col] = X[col].astype("category").cat.codes
 
-    # Convert to numeric safely
     X = X.apply(pd.to_numeric)
 
-    # Scale
     X_scaled = scaler.transform(X)
 
-    # Predict
     prediction = model.predict(X_scaled)[0]
-
     predicted_attack = label_encoder.inverse_transform([prediction])[0]
-    actual_attack = label_encoder.inverse_transform([y_actual])[0]
 
     status = "Correct ✅" if predicted_attack == actual_attack else "Incorrect ❌"
 
-    # Save to MongoDB safely
+    # Save to MongoDB
     if collection is not None:
         try:
             collection.insert_one({
