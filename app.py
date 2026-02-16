@@ -3,36 +3,32 @@ import numpy as np
 import pandas as pd
 import joblib
 import os
-from tensorflow.keras.models import load_model
 from pymongo import MongoClient
 
 app = Flask(__name__)
 
 # ==============================
-# Load Trained Models
+# Load Models
 # ==============================
-model = load_model("model_cnn.h5")
+model = joblib.load("model.pkl")
 iso = joblib.load("isolation.pkl")
 scaler = joblib.load("scaler.pkl")
 label_encoder = joblib.load("label_encoder.pkl")
 
-# ==============================
-# Load Accuracy
-# ==============================
 with open("accuracy.txt") as f:
     accuracy = f.read()
 
 # ==============================
-# MongoDB Cloud Connection
+# MongoDB Connection
 # ==============================
-MONGO_URI = os.environ.get("MONGO_URI")  # Set this in Render environment
+MONGO_URI = os.environ.get("MONGO_URI")
 
 if MONGO_URI:
     client = MongoClient(MONGO_URI)
     db = client["cloud_ids"]
     collection = db["attack_logs"]
 else:
-    collection = None  # If Mongo not configured
+    collection = None
 
 # ==============================
 # Load Test Dataset
@@ -54,10 +50,8 @@ def map_attack(label):
 test_df["attack_type"] = test_df["label"].apply(map_attack)
 test_df.drop("label", axis=1, inplace=True)
 
-X_test = test_df.drop("attack_type", axis=1)
-
-for col in X_test.select_dtypes(include=['object']).columns:
-    X_test[col] = X_test[col].astype('category').cat.codes
+for col in test_df.select_dtypes(include=['object']).columns:
+    test_df[col] = test_df[col].astype('category').cat.codes
 
 
 # ==============================
@@ -77,11 +71,8 @@ def predict():
     X_sample = random_sample.drop("attack_type", axis=1)
 
     data_scaled = scaler.transform(X_sample)
-    data_cnn = np.reshape(data_scaled, (1, data_scaled.shape[1], 1))
 
-    pred = model.predict(data_cnn, verbose=0)
-    pred_class = np.argmax(pred)
-
+    pred_class = model.predict(data_scaled)[0]
     predicted_attack = label_encoder.inverse_transform([pred_class])[0]
 
     if actual_attack == predicted_attack:
@@ -89,24 +80,27 @@ def predict():
     else:
         status = "❌ Incorrect Detection"
 
-    # Save to MongoDB Cloud
+    # Isolation Forest
+    iso_pred = iso.predict(data_scaled)
+    anomaly_status = "⚠ Anomaly Detected" if iso_pred[0] == -1 else "Normal Behavior"
+
+    # Save to MongoDB
     if collection:
         collection.insert_one({
             "actual_attack": actual_attack,
             "predicted_attack": predicted_attack,
-            "status": status
+            "status": status,
+            "anomaly": anomaly_status
         })
 
     return render_template("index.html",
                            prediction=f"Predicted: {predicted_attack}",
                            actual=f"Actual: {actual_attack}",
                            status=status,
+                           anomaly=anomaly_status,
                            accuracy=accuracy)
 
 
-# ==============================
-# Run for Cloud Deployment
-# ==============================
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
