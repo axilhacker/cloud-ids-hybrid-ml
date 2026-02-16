@@ -1,6 +1,5 @@
 from flask import Flask, render_template
 import pandas as pd
-import numpy as np
 import joblib
 import os
 from pymongo import MongoClient
@@ -12,7 +11,6 @@ app = Flask(__name__)
 # ==============================
 model = joblib.load("model.pkl")
 scaler = joblib.load("scaler.pkl")
-label_encoder = joblib.load("label_encoder.pkl")
 
 # ==============================
 # LOAD TEST DATASET
@@ -49,28 +47,32 @@ def home():
 @app.route("/predict")
 def predict():
 
+    # Pick random row
     random_row = test_df.sample(1)
 
     X = random_row.drop("label", axis=1)
-    actual_attack = random_row["label"].values[0]  # 🔥 Use raw label safely
+    actual_attack = str(random_row["label"].values[0])  # Use raw label
 
-    # Encode categorical columns
+    # Encode categorical columns safely
     categorical_columns = ["protocol_type", "service", "flag"]
 
     for col in categorical_columns:
         if col in X.columns:
             X[col] = X[col].astype("category").cat.codes
 
+    # Ensure numeric
     X = X.apply(pd.to_numeric)
 
+    # Scale
     X_scaled = scaler.transform(X)
 
+    # Predict
     prediction = model.predict(X_scaled)[0]
-    predicted_attack = label_encoder.inverse_transform([prediction])[0]
+    predicted_attack = str(prediction)  # Directly show prediction
 
     status = "Correct ✅" if predicted_attack == actual_attack else "Incorrect ❌"
 
-    # Save to MongoDB
+    # Save to MongoDB safely
     if collection is not None:
         try:
             collection.insert_one({
